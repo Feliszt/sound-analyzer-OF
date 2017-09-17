@@ -1,6 +1,14 @@
 # Prerequisites
 *.d
 
+# General stuff
+/bin/*
+!/bin/data/
+[Bb]uild/
+[Oo]bj/
+[Dd]ebug*/
+[Rr]elease*/
+
 # Compiled Object files
 *.slo
 *.lo
@@ -30,3 +38,8 @@
 *.exe
 *.out
 *.app
+
+# Qt Creator stuff
+*.qbs
+*.qbs.user
+
