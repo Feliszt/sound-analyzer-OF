@@ -7,21 +7,11 @@ void ofApp::setup(){
     ofSetCircleResolution(80);
     ofBackground(54, 54, 54);
 
-    // 0 output channels,
-    // 2 input channels
-    // 44100 samples per second
-    // 256 samples per buffer
-    // 4 num buffers (latency)
-
     soundStream.printDeviceList();
 
-    //if you want to set a different device id
-    //soundStream.setDeviceID(0); //bear in mind the device id corresponds to all audio devices, including  input-only and output-only devices.
-
-    int bufferSize = 2048;
-
-    left.assign(bufferSize, 0.0);
-    right.assign(bufferSize, 0.0);
+    left.assign(BUFFER_SIZE, 0.0);
+    right.assign(BUFFER_SIZE, 0.0);
+    freq_amp.assign((int) BUFFER_SIZE / 2, 0.0);
     volHistory.assign(400, 0.0);
 
     bufferCounter	= 0;
@@ -29,8 +19,7 @@ void ofApp::setup(){
     smoothedVol     = 0.0;
     scaledVol		= 0.0;
 
-    soundStream.setup(this, 0, 2, 48000, bufferSize, 3);
-
+    soundStream.setup(this, 0, 2, 48000, BUFFER_SIZE, 3);
 }
 
 //--------------------------------------------------------------
@@ -85,7 +74,7 @@ void ofApp::draw(){
         ofTranslate(32, 370, 0);
 
         ofSetColor(225);
-        ofDrawBitmapString("Right Channel", 4, 18);
+        ofDrawBitmapString("FFT", 4, 18);
 
         ofSetLineWidth(1);
         ofDrawRectangle(0, 0, 512, 200);
@@ -94,8 +83,8 @@ void ofApp::draw(){
         ofSetLineWidth(3);
 
             ofBeginShape();
-            for (unsigned int i = 0; i < right.size(); i++){
-                ofVertex(ofMap(i*2, 0, right.size() * 2, 0, 512), 100 -right[i]*180.0f);
+            for (unsigned int i = 0; i < freq_amp.size(); i++){
+                ofVertex(ofMap(i*2, 0, freq_amp.size() * 2, 0, 512), 200 - freq_amp[i]);
             }
             ofEndShape(false);
 
@@ -140,6 +129,7 @@ void ofApp::draw(){
 //--------------------------------------------------------------
 void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 
+    float avg_power = 0.0f;
     float curVol = 0.0;
 
     // samples are "interleaved"
@@ -155,17 +145,22 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
         numCounted+=1;
     }
 
-    //this is how we get the mean of rms :)
+    // compute mean of rms
     curVol /= (float)numCounted;
 
-    // this is how we get the root of rms :)
+    // compute root of rms
     curVol = sqrt( curVol );
 
     smoothedVol *= 0.93;
     smoothedVol += 0.07 * curVol;
 
-    bufferCounter++;
+    // compute fft
+    fftoperator.powerSpectrum(0, (int) BUFFER_SIZE / 2, &left[0], BUFFER_SIZE, &magnitude[0], &phase[0], &power[0], &avg_power);
+    for(int i = 1; i < BUFFER_SIZE / 2; i++) {
+        freq_amp[i-1] = magnitude[i];
+    }
 
+    bufferCounter++;
 }
 
 //--------------------------------------------------------------

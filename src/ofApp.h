@@ -1,6 +1,9 @@
 #pragma once
 
 #include "ofMain.h"
+#include "fft.h"
+
+#define BUFFER_SIZE 2048
 
 class ofApp : public ofBaseApp{
 
@@ -26,8 +29,14 @@ class ofApp : public ofBaseApp{
 
         vector <float> left;
         vector <float> right;
-        vector <float> fft;
         vector <float> volHistory;
+        vector <float> freq_amp;
+
+        // frequency analysis
+        FFT fftoperator;
+        float magnitude[BUFFER_SIZE];
+        float phase[BUFFER_SIZE];
+        float power[BUFFER_SIZE];
 
         int 	bufferCounter;
         int 	drawCounter;
