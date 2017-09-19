@@ -2,24 +2,44 @@
 
 //--------------------------------------------------------------
 void ofApp::setup(){
-
-    ofSetVerticalSync(true);
-    ofSetCircleResolution(80);
-    ofBackground(54, 54, 54);
-
+    // Sound stream setup
+    samplingFreq    = 48000; // 48      kHz
+    bufferSize      = 2048;  // 2048    samples
+    samplePerFreq   = (float) bufferSize / (float) samplingFreq;
     soundStream.printDeviceList();
+    soundStream.setup(this, 0, 2, samplingFreq, bufferSize, 3);
 
-    left.assign(BUFFER_SIZE, 0.0);
-    right.assign(BUFFER_SIZE, 0.0);
-    freq_amp.assign((int) BUFFER_SIZE / 2, 0.0);
+    // Signals setup
+    left.assign(bufferSize, 0.0);
+    right.assign(bufferSize, 0.0);
+    freq_amp.assign((int) bufferSize / 2, 0.0);
     volHistory.assign(400, 0.0);
+    magnitude.assign(bufferSize, 0.0);
+    power.assign(bufferSize, 0.0);
+    phase.assign(bufferSize, 0.0);
 
+    // Floats setup
     bufferCounter	= 0;
     drawCounter		= 0;
     smoothedVol     = 0.0;
+    curVol          = 0.0;
     scaledVol		= 0.0;
 
-    soundStream.setup(this, 0, 2, 48000, BUFFER_SIZE, 3);
+    // UI setup
+        // colors
+    backgroundColor = ofColor(216, 216, 217);
+    outlineColor    = ofColor(42);
+    contentColor    = ofColor(212, 81, 19);
+        // panel
+    gui.setup();
+    gui.setPosition(32, 64);
+        // sliders
+    gui.add(volume.setup("Input signal volume", 1.0, 0.0, 1.0));
+    gui.add(maxFreq.setup("Max freq (Hz)", samplingFreq / 4, 200, samplingFreq / 4 ));
+
+    ofSetVerticalSync(true);
+    ofSetCircleResolution(80);
+    ofBackground(backgroundColor);
 }
 
 //--------------------------------------------------------------
@@ -39,9 +59,11 @@ void ofApp::update(){
 //--------------------------------------------------------------
 void ofApp::draw(){
 
-    ofSetColor(225);
-    ofDrawBitmapString("AUDIO INPUT EXAMPLE", 32, 32);
-    ofDrawBitmapString("press 's' to unpause the audio\n'e' to pause the audio", 31, 92);
+    // draw GUI
+    gui.draw();
+
+    ofSetColor(outlineColor);
+    ofDrawBitmapString("SOUND ANALYZER", 32, 32);
 
     ofNoFill();
 
@@ -50,13 +72,13 @@ void ofApp::draw(){
         ofPushMatrix();
         ofTranslate(32, 170, 0);
 
-        ofSetColor(225);
+        ofSetColor(outlineColor);
         ofDrawBitmapString("Left Channel", 4, 18);
 
         ofSetLineWidth(1);
         ofDrawRectangle(0, 0, 512, 200);
 
-        ofSetColor(245, 58, 135);
+        ofSetColor(contentColor);
         ofSetLineWidth(3);
 
             ofBeginShape();
@@ -68,26 +90,40 @@ void ofApp::draw(){
         ofPopMatrix();
     ofPopStyle();
 
-    // draw the right channel:
+    // draw the FFt:
+    float maxFreqInd = samplePerFreq * maxFreq;
+
     ofPushStyle();
         ofPushMatrix();
         ofTranslate(32, 370, 0);
 
-        ofSetColor(225);
+        ofSetColor(outlineColor);
         ofDrawBitmapString("FFT", 4, 18);
 
         ofSetLineWidth(1);
         ofDrawRectangle(0, 0, 512, 200);
 
-        ofSetColor(245, 58, 135);
+        ofSetColor(contentColor);
         ofSetLineWidth(3);
 
             ofBeginShape();
-            for (unsigned int i = 0; i < freq_amp.size(); i++){
-                ofVertex(ofMap(i*2, 0, freq_amp.size() * 2, 0, 512), 200 - freq_amp[i]);
+            for (unsigned int i = 0; i < maxFreqInd; i++){
+                ofVertex(ofMap(i*2, 0, maxFreqInd * 2, 0, 512), 200 - freq_amp[i]);
             }
             ofEndShape(false);
 
+        // display freq info
+        ofSetColor(outlineColor);
+        ofSetLineWidth(1);
+            // origin
+        ofDrawLine(0, 200, 0, 210);
+        ofDrawBitmapString("0", -5, 220);
+            // middle point
+        ofDrawLine(256, 200, 256, 210);
+        ofDrawBitmapString(maxFreq / 2, 240, 220);
+            // end
+        ofDrawLine(512, 200, 512, 210);
+        ofDrawBitmapString(maxFreq.getParameter().toString(), 490, 220);
         ofPopMatrix();
     ofPopStyle();
 
@@ -96,11 +132,11 @@ void ofApp::draw(){
         ofPushMatrix();
         ofTranslate(565, 170, 0);
 
-        ofSetColor(225);
+        ofSetColor(outlineColor);
         ofDrawBitmapString("Scaled average vol (0-100): " + ofToString(scaledVol * 100.0, 0), 4, 18);
         ofDrawRectangle(0, 0, 400, 400);
 
-        ofSetColor(245, 58, 135);
+        ofSetColor(contentColor);
         ofFill();
         ofDrawCircle(200, 200, scaledVol * 190.0f);
 
@@ -119,25 +155,20 @@ void ofApp::draw(){
     ofPopStyle();
 
     drawCounter++;
-
-    ofSetColor(225);
-    string reportString = "buffers received: "+ofToString(bufferCounter)+"\ndraw routines called: "+ofToString(drawCounter)+"\nticks: " + ofToString(soundStream.getTickCount());
-    ofDrawBitmapString(reportString, 32, 589);
-
 }
 
 //--------------------------------------------------------------
 void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 
     float avg_power = 0.0f;
-    float curVol = 0.0;
+    curVol = 0.0;
 
     // samples are "interleaved"
     int numCounted = 0;
 
     //lets go through each sample and calculate the root mean square which is a rough way to calculate volume
     for (int i = 0; i < bufferSize; i++){
-        left[i]		= input[i*2];
+        left[i]		= input[i*2] * volume;
         //right[i]	= input[i*2+1];
 
         curVol += left[i] * left[i];
@@ -155,8 +186,10 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
     smoothedVol += 0.07 * curVol;
 
     // compute fft
-    fftoperator.powerSpectrum(0, (int) BUFFER_SIZE / 2, &left[0], BUFFER_SIZE, &magnitude[0], &phase[0], &power[0], &avg_power);
-    for(int i = 1; i < BUFFER_SIZE / 2; i++) {
+    fftoperator.powerSpectrum(0, (int) bufferSize / 2, &left[0], bufferSize, &magnitude[0], &phase[0], &power[0], &avg_power);
+
+    // store fft
+    for(int i = 1; i < bufferSize / 2; i++) {
         freq_amp[i-1] = magnitude[i];
     }
 
@@ -165,13 +198,7 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 
 //--------------------------------------------------------------
 void ofApp::keyPressed  (int key){
-    if( key == 's' ){
-        soundStream.start();
-    }
 
-    if( key == 'e' ){
-        soundStream.stop();
-    }
 }
 
 //--------------------------------------------------------------
