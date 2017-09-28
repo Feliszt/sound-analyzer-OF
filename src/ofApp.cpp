@@ -13,7 +13,7 @@ void ofApp::setup(){
     left.assign(bufferSize, 0.0);
     right.assign(bufferSize, 0.0);
     freq_amp.assign((int) bufferSize / 2, 0.0);
-    volHistory.assign(400, 0.0);
+    volHistory.assign(512, 0.0);
     magnitude.assign(bufferSize, 0.0);
     power.assign(bufferSize, 0.0);
     phase.assign(bufferSize, 0.0);
@@ -30,16 +30,18 @@ void ofApp::setup(){
     backgroundColor = ofColor(216, 216, 217);
     outlineColor    = ofColor(42);
     contentColor    = ofColor(212, 81, 19);
-        // panel
-    gui.setup();
-    gui.setPosition(32, 64);
-        // sliders
-    gui.add(volume.setup("Input signal volume", 1.0, 0.0, 1.0));
-    gui.add(maxFreq.setup("Max freq (Hz)", samplingFreq / 4, 200, samplingFreq / 4 ));
+        // fonts
+    overPassMono10.load("overpass-mono/overpass-mono-regular.otf", 10);
+    overPassMono12.load("overpass-mono/overpass-mono-regular.otf", 12);
+        // gui
+    maxFreq.setup(200, samplingFreq / 4, 1300, overPassMono10);
+    volume.setup(0, 100, 40, overPassMono12);
+    numBin.setup(1, 20, 12, overPassMono10);
 
     ofSetVerticalSync(true);
     ofSetCircleResolution(80);
     ofBackground(backgroundColor);
+    ofNoFill();
 }
 
 //--------------------------------------------------------------
@@ -58,98 +60,162 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-
-    // draw GUI
-    gui.draw();
-
     ofSetColor(outlineColor);
-    ofDrawBitmapString("SOUND ANALYZER", 32, 32);
+    overPassMono12.drawString("SOUND ANALYZER", 32, 32);
 
-    ofNoFill();
+    ofMatrix4x4 translation;
 
     // draw the left channel:
+    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(32, 64));
     ofPushStyle();
         ofPushMatrix();
-        ofTranslate(32, 170, 0);
 
-        ofSetColor(outlineColor);
-        ofDrawBitmapString("Left Channel", 4, 18);
+            // translation
+            ofMultMatrix(translation);
 
-        ofSetLineWidth(1);
-        ofDrawRectangle(0, 0, 512, 200);
+            // window outline
+            ofSetLineWidth(1);
+            ofDrawRectangle(0, 0, 512, 200);
 
-        ofSetColor(contentColor);
-        ofSetLineWidth(3);
+            // window title
+            ofSetColor(outlineColor);
+            overPassMono10.drawString("Left Channel", 4, 18);
 
+            // draw curve
+            ofSetColor(contentColor);
+            ofSetLineWidth(3);
             ofBeginShape();
-            for (unsigned int i = 0; i < left.size(); i++){
-                ofVertex(ofMap(i*2, 0, left.size() * 2, 0, 512), 100 -left[i]*180.0f);
+                for (unsigned int i = 0; i < left.size(); i++){
+                    ofVertex(ofMap(i*2, 0, left.size() * 2, 0, 512), 100 -left[i]*180.0f);
+                }
+            ofEndShape(false);
+
+        ofPopMatrix();
+    ofPopStyle();
+
+    // draw the average volume:
+    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(32, 264));
+    ofPushStyle();
+        ofPushMatrix();
+
+            // translation
+            ofMultMatrix(translation);
+
+            // window outline
+            ofDrawRectangle(0, 0, 512, 200);
+
+            // title window
+            ofSetColor(outlineColor);
+            overPassMono10.drawString("Volume : ", 4, 18);
+
+            // draw volume
+            volume.draw(80, 18, translation);
+            overPassMono10.drawString("Scaled average vol (0-100): " + ofToString(scaledVol * 100.0, 0), 4, 35);
+
+            // draw circle for scaled volume
+            ofSetColor(contentColor);
+            ofFill();
+            ofDrawCircle(256, 100, scaledVol * 50.0f);
+
+            //lets draw the volume history as a graph
+            ofBeginShape();
+            for (unsigned int i = 0; i < volHistory.size(); i++){
+                if( i == 0 ) ofVertex(i, 200);
+
+                ofVertex(i, 200 - volHistory[i] * 35);
+
+                if( i == volHistory.size() -1 ) ofVertex(i, 200);
             }
             ofEndShape(false);
+            ofNoFill();
 
         ofPopMatrix();
     ofPopStyle();
 
     // draw the FFt:
-    float maxFreqInd = samplePerFreq * maxFreq;
-
+    float maxFreqInd = samplePerFreq * maxFreq.value;
+    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(544, 64));
     ofPushStyle();
         ofPushMatrix();
-        ofTranslate(32, 370, 0);
+            // translation
+            ofMultMatrix(translation);
 
-        ofSetColor(outlineColor);
-        ofDrawBitmapString("FFT", 4, 18);
+            // title of window
+            ofSetColor(outlineColor);
+            overPassMono10.drawString("FFT", 4, 18);
 
-        ofSetLineWidth(1);
-        ofDrawRectangle(0, 0, 512, 200);
+            // window outline
+            ofSetLineWidth(1);
+            ofDrawRectangle(0, 0, 512, 200);
 
-        ofSetColor(contentColor);
-        ofSetLineWidth(3);
-
+            // draw curve
+            ofSetColor(contentColor);
+            ofSetLineWidth(3);
             ofBeginShape();
-            for (unsigned int i = 0; i < maxFreqInd; i++){
-                ofVertex(ofMap(i*2, 0, maxFreqInd * 2, 0, 512), 200 - freq_amp[i]);
-            }
+                for (unsigned int i = 0; i < maxFreqInd; i++){
+                    ofVertex(ofMap(i*2, 0, maxFreqInd * 2, 0, 512), 200 - freq_amp[i]);
+                }
             ofEndShape(false);
 
-        // display freq info
-        ofSetColor(outlineColor);
-        ofSetLineWidth(1);
-            // origin
-        ofDrawLine(0, 200, 0, 210);
-        ofDrawBitmapString("0", -5, 220);
-            // middle point
-        ofDrawLine(256, 200, 256, 210);
-        ofDrawBitmapString(maxFreq / 2, 240, 220);
-            // end
-        ofDrawLine(512, 200, 512, 210);
-        ofDrawBitmapString(maxFreq.getParameter().toString(), 490, 220);
+            // display freq info
+            ofSetColor(outlineColor);
+            ofSetLineWidth(1);
+                // origin
+            ofDrawLine(0, 200, 0, 210);
+            overPassMono10.drawString("0", 5, 220);
+                // middle point
+            ofDrawLine(256, 200, 256, 210);
+            overPassMono10.drawString(ofToString(maxFreq.value / 2), 240, 220);
+                // end
+            ofDrawLine(512, 200, 512, 210);
+            maxFreq.draw(430, 220, translation);
+            overPassMono10.drawString("(Hz)", 470, 220);
+
         ofPopMatrix();
     ofPopStyle();
 
-    // draw the average volume:
+    // draw the bins:
+    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(544, 264));
     ofPushStyle();
         ofPushMatrix();
-        ofTranslate(565, 170, 0);
+            // translation
+            ofMultMatrix(translation);
 
-        ofSetColor(outlineColor);
-        ofDrawBitmapString("Scaled average vol (0-100): " + ofToString(scaledVol * 100.0, 0), 4, 18);
-        ofDrawRectangle(0, 0, 400, 400);
+            // window outline
+            ofSetLineWidth(1);
+            ofDrawRectangle(0, 0, 512, 200);
 
-        ofSetColor(contentColor);
-        ofFill();
-        ofDrawCircle(200, 200, scaledVol * 190.0f);
+            // title of window
+            ofSetColor(outlineColor);
+            overPassMono10.drawString("BINS", 4, 35);
 
-        //lets draw the volume history as a graph
-        ofBeginShape();
-        for (unsigned int i = 0; i < volHistory.size(); i++){
-            if( i == 0 ) ofVertex(i, 400);
+            // number of bins
+            overPassMono10.drawString("Number :", 4, 55);
+            numBin.draw(80, 55, translation);
 
-            ofVertex(i, 400 - volHistory[i] * 70);
+            //
+            binsAmp.assign(numBin.value, 0.0);
+            float sc_win = 512 / numBin.value;
+            float sc_freq = maxFreqInd / numBin.value;
+            ofSetColor(contentColor);
+            ofSetLineWidth(3);
+            ofBeginShape();
+            for(int i = 0; i < binsAmp.size(); i++)
+            {
+                float binValue = 0;
+                int numCounted = 0;
+                for(int j = i * sc_freq; j < (i + 1) * sc_freq; j++)
+                {
+                    binValue += freq_amp[j] * freq_amp[j];
+                    numCounted += 1;
+                }
+                binValue /= numCounted;
+                binValue = sqrt(binValue);
 
-            if( i == volHistory.size() -1 ) ofVertex(i, 400);
-        }
-        ofEndShape(false);
+                ofVertex(i * sc_win,  200 - binValue);
+                ofVertex((i+1) * sc_win,  200 - binValue);
+            }
+            ofEndShape(false);
 
         ofPopMatrix();
     ofPopStyle();
@@ -168,7 +234,7 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 
     //lets go through each sample and calculate the root mean square which is a rough way to calculate volume
     for (int i = 0; i < bufferSize; i++){
-        left[i]		= input[i*2] * volume;
+        left[i]		= input[i*2] * volume.value;
         //right[i]	= input[i*2+1];
 
         curVol += left[i] * left[i];

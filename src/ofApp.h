@@ -3,6 +3,7 @@
 #include "ofMain.h"
 #include "ofxGui.h"
 #include "fft.h"
+#include "customslider.h"
 
 class ofApp : public ofBaseApp{
 
@@ -11,6 +12,8 @@ class ofApp : public ofBaseApp{
         void setup();
         void update();
         void draw();
+
+        ofRectangle getBitmapStringBoundingBox(string text);
 
         void keyPressed(int key);
         void keyReleased(int key);
@@ -33,6 +36,7 @@ class ofApp : public ofBaseApp{
         vector <float> magnitude;
         vector <float> phase;
         vector <float> power;
+        vector <float> binsAmp;
 
         // frequency analysis
         FFT fftoperator;
@@ -46,13 +50,16 @@ class ofApp : public ofBaseApp{
 
          // UI variables
             // panel and sliders
-        ofxPanel gui;
-        ofxFloatSlider volume;
-        ofxFloatSlider maxFreq;
+        CustomSlider maxFreq;
+        CustomSlider volume;
+        CustomSlider numBin;
             // colors
         ofColor backgroundColor;
         ofColor outlineColor;
         ofColor contentColor;
+            // font
+        ofTrueTypeFont overPassMono10;
+        ofTrueTypeFont overPassMono12;
 
         // Sound stream variable
         ofSoundStream soundStream;
