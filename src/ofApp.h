@@ -53,6 +53,7 @@ class ofApp : public ofBaseApp{
         CustomSlider maxFreq;
         CustomSlider volume;
         CustomSlider numBin;
+        float        numBinPrev;
             // colors
         ofColor backgroundColor;
         ofColor outlineColor;

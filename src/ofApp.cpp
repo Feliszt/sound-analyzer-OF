@@ -17,6 +17,7 @@ void ofApp::setup(){
     magnitude.assign(bufferSize, 0.0);
     power.assign(bufferSize, 0.0);
     phase.assign(bufferSize, 0.0);
+    binsAmp.assign(numBin.value, 0.0);
 
     // Floats setup
     bufferCounter	= 0;
@@ -56,6 +57,16 @@ void ofApp::update(){
     if( volHistory.size() >= 400 ){
         volHistory.erase(volHistory.begin(), volHistory.begin()+1);
     }
+
+
+    // check if number of bin changed
+    if(numBinPrev != numBin.value)
+    {
+        binsAmp.assign(numBin.value, 0.0);
+    }
+
+    // update stuff
+    numBinPrev = numBin.value;
 }
 
 //--------------------------------------------------------------
@@ -194,17 +205,27 @@ void ofApp::draw(){
             numBin.draw(80, 55, translation);
 
             //
-            binsAmp.assign(numBin.value, 0.0);
+            //binsAmp.assign(numBin.value, 0.0);
             float sc_win = 512 / numBin.value;
-            float sc_freq = maxFreqInd / numBin.value;
+            float sc_freqInd = maxFreqInd / numBin.value;
+            float sc_freqReal = maxFreq.value / numBin.value;
             ofSetColor(contentColor);
-            ofSetLineWidth(3);
+            ofSetLineWidth(1);
             ofBeginShape();
             for(int i = 0; i < binsAmp.size(); i++)
             {
+                // compute first ind and last ind of that bin
+                    // first and last in freq_amp
+                int startInd = i * sc_freqInd;
+                int endInd = (i + 1) * sc_freqInd;
+                    // first and last on window
+                float startWin = i * sc_win;
+                float endWin = (i + 1) * sc_win;
+
+                // compute RMS of that bin
                 float binValue = 0;
                 int numCounted = 0;
-                for(int j = i * sc_freq; j < (i + 1) * sc_freq; j++)
+                for(int j = startInd; j < endInd; j++)
                 {
                     binValue += freq_amp[j] * freq_amp[j];
                     numCounted += 1;
@@ -212,9 +233,27 @@ void ofApp::draw(){
                 binValue /= numCounted;
                 binValue = sqrt(binValue);
 
-                ofVertex(i * sc_win,  200 - binValue);
-                ofVertex((i+1) * sc_win,  200 - binValue);
+                binsAmp[i] *= 0.99;
+                binsAmp[i] += 0.01 * binValue;
+
+                // draw bin
+                ofVertex(startWin, 200);
+                ofVertex(startWin, 200 - binsAmp[i]);
+                ofVertex(endWin, 200 - binsAmp[i]);
+                ofVertex(endWin, 200);
+
+                // draw number
+                ofSetColor(outlineColor);
+                ofDrawLine(startWin, 200, startWin, 210);
+                overPassMono10.drawString(ofToString((int) (i * sc_freqReal)), startWin - 10, (i % 2) ? 225 : 240);
+                if(i == binsAmp.size() - 1)
+                {
+                    ofDrawLine(endWin, 200, endWin, 210);
+                    overPassMono10.drawString(ofToString((int) ((i+1) * sc_freqReal)), endWin - 10, ((i+1) % 2) ? 225 : 240);
+                }
             }
+            ofSetLineWidth(3);
+            ofSetColor(contentColor);
             ofEndShape(false);
 
         ofPopMatrix();
