@@ -2,8 +2,19 @@
 
 #include "ofMain.h"
 #include "ofxGui.h"
+#include "ofxXmlSettings.h"
 #include "fft.h"
 #include "customslider.h"
+#include "customsliderb.h"
+
+#define LW 64
+#define UH 128
+#define WW 512
+#define HW 200
+#define INTW 64
+#define TH -10
+#define WAPP 2 * LW + 2 * WW + INTW
+#define HAPP UH + 2 * HW + LW + INTW
 
 class ofApp : public ofBaseApp{
 
@@ -15,6 +26,7 @@ class ofApp : public ofBaseApp{
 
         ofRectangle getBitmapStringBoundingBox(string text);
 
+        void exit();
         void keyPressed(int key);
         void keyReleased(int key);
         void mouseMoved(int x, int y );
@@ -54,6 +66,7 @@ class ofApp : public ofBaseApp{
         CustomSlider volume;
         CustomSlider numBin;
         float        numBinPrev;
+        CustomSliderB smoothBin;
             // colors
         ofColor backgroundColor;
         ofColor outlineColor;
@@ -61,6 +74,7 @@ class ofApp : public ofBaseApp{
             // font
         ofTrueTypeFont overPassMono10;
         ofTrueTypeFont overPassMono12;
+        ofTrueTypeFont overPassMono14;
 
         // Sound stream variable
         ofSoundStream soundStream;

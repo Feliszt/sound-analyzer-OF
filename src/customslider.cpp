@@ -5,12 +5,16 @@ CustomSlider::CustomSlider()
 
 }
 
-void CustomSlider::setup(float _minValue, float _maxValue, float _value, ofTrueTypeFont _font)
+void CustomSlider::setup(float _minValue, float _maxValue, float _value, ofTrueTypeFont _font, ofColor _hoverColor, ofColor _dragColor)
 {
     minValue = _minValue;
     maxValue = _maxValue;
     value = _value;
     textFont = _font;
+    hoverColor = _hoverColor;
+    dragColor = _dragColor;
+    dragColorBoundary = _dragColor;
+    dragColorBoundary.setBrightness(100);
 
     posCenterString = getCenterOfString(ofToString(value));
 }
@@ -20,16 +24,16 @@ void CustomSlider::draw(float posStringX, float posStringY, ofMatrix4x4 transMat
     ofPoint posStringAbs = ofPoint(posStringX + posCenterString.x, posStringY - posCenterString.y) * transMatrix;
 
     // get string from value
-    valueString = ofToString(value);
+    valueString = ofToString((int) value);
 
     // check if hovered
     hovered = (ofGetMouseX() < posStringAbs.x + 40) &&
               (ofGetMouseX() > posStringAbs.x - 40) &&
-              (ofGetMouseY() < posStringAbs.y + 20) &&
-              (ofGetMouseY() > posStringAbs.y - 20);
+              (ofGetMouseY() < posStringAbs.y + 10) &&
+              (ofGetMouseY() > posStringAbs.y - 10);
 
     // check if dragged
-    if(hovered && ofGetMousePressed())
+    if(hovered && ofGetMousePressed() && !mousePressedPrev)
     {
         dragged = true;
     }
@@ -46,14 +50,8 @@ void CustomSlider::draw(float posStringX, float posStringY, ofMatrix4x4 transMat
     if(dragged)
     {
         diff = ofGetMouseX() - mousePosStart.x;
-        float valueUpdate = valueStart + diff;
-        if((valueUpdate >= minValue) && (valueUpdate <= maxValue))
-        {
-            valueUpdatable = true;
-            value = valueUpdate;
-        } else {
-            valueUpdatable = false;
-        }
+        float valueUpdate = valueStart + diff / ofGetWidth() * (maxValue - minValue);
+        value = ofClamp(valueUpdate, minValue, maxValue);
     }
 
     // get boundingbox of string
@@ -62,10 +60,11 @@ void CustomSlider::draw(float posStringX, float posStringY, ofMatrix4x4 transMat
 
     // update stuff
     draggedPrev = dragged;
+    mousePressedPrev = ofGetMousePressed();
     numDigitPrev = numDigit;
 
     // draw value
-    textFont.drawString(ofToString(value), posStringX, posStringY);
+    textFont.drawString(valueString, posStringX, posStringY);
 
     // translate
     ofPushStyle();
@@ -75,29 +74,29 @@ void CustomSlider::draw(float posStringX, float posStringY, ofMatrix4x4 transMat
 
         if((hovered && !dragged) || (dragged && diff == 0))
         {
-            ofSetColor(ofColor::black);
+            ofSetColor(hoverColor);
             ofDrawTriangle(20, - 5, 20, 5, 25, 0);
             ofDrawTriangle(- 20, -5, - 20, 5, - 25, 0);
         }
 
         if(dragged && (diff > 0))
         {
-            if(valueUpdatable)
+            ofSetColor(dragColor);
+            if(value == maxValue)
             {
-                ofSetColor(ofColor::darkGreen);
-            } else {
-                ofSetColor(ofColor::darkRed);
+                ofSetColor(dragColorBoundary);
+
             }
             ofDrawTriangle(20, - 5, 20, 5, 25, 0);
         }
 
         if(dragged && (diff < 0))
         {
-            if(valueUpdatable)
+            ofSetColor(dragColor);
+            if(value == minValue)
             {
-                ofSetColor(ofColor::darkGreen);
-            } else {
-                ofSetColor(ofColor::darkRed);
+                ofSetColor(dragColorBoundary);
+
             }
             ofDrawTriangle(- 20, -5, - 20, 5, - 25, 0);
         }

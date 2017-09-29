@@ -2,6 +2,14 @@
 
 //--------------------------------------------------------------
 void ofApp::setup(){
+    // load settings
+    ofxXmlSettings settings;
+    settings.loadFile("SoundAnalyzerSettings.xml");
+    float volumeSetting = settings.getValue("settings:volume", 40);
+    float maxFreqSetting = settings.getValue("settings:maxFreq", 1300);
+    float numBinsSetting = settings.getValue("settings:numBins", 14);
+    float smoothingSetting = settings.getValue("settings:smoothing", 0.5);
+
     // Sound stream setup
     samplingFreq    = 48000; // 48      kHz
     bufferSize      = 2048;  // 2048    samples
@@ -13,7 +21,7 @@ void ofApp::setup(){
     left.assign(bufferSize, 0.0);
     right.assign(bufferSize, 0.0);
     freq_amp.assign((int) bufferSize / 2, 0.0);
-    volHistory.assign(512, 0.0);
+    volHistory.assign(WW, 0.0);
     magnitude.assign(bufferSize, 0.0);
     power.assign(bufferSize, 0.0);
     phase.assign(bufferSize, 0.0);
@@ -34,10 +42,12 @@ void ofApp::setup(){
         // fonts
     overPassMono10.load("overpass-mono/overpass-mono-regular.otf", 10);
     overPassMono12.load("overpass-mono/overpass-mono-regular.otf", 12);
+    overPassMono14.load("overpass-mono/overpass-mono-regular.otf", 14);
         // gui
-    maxFreq.setup(200, samplingFreq / 4, 1300, overPassMono10);
-    volume.setup(0, 100, 40, overPassMono12);
-    numBin.setup(1, 20, 12, overPassMono10);
+    maxFreq.setup(400, samplingFreq / 4, maxFreqSetting, overPassMono10, outlineColor, contentColor);
+    volume.setup(0, 100, volumeSetting, overPassMono12, outlineColor, contentColor);
+    numBin.setup(1, 50, numBinsSetting, overPassMono10, outlineColor, contentColor);
+    smoothBin.setup(smoothingSetting, outlineColor, contentColor);
 
     ofSetVerticalSync(true);
     ofSetCircleResolution(80);
@@ -58,7 +68,6 @@ void ofApp::update(){
         volHistory.erase(volHistory.begin(), volHistory.begin()+1);
     }
 
-
     // check if number of bin changed
     if(numBinPrev != numBin.value)
     {
@@ -72,12 +81,13 @@ void ofApp::update(){
 //--------------------------------------------------------------
 void ofApp::draw(){
     ofSetColor(outlineColor);
-    overPassMono12.drawString("SOUND ANALYZER", 32, 32);
+    overPassMono14.drawString("SOUND ANALYZER", LW, UH / 2);
 
     ofMatrix4x4 translation;
 
+    // first window (1, 1)
     // draw the left channel:
-    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(32, 64));
+    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(LW, UH));
     ofPushStyle();
         ofPushMatrix();
 
@@ -85,27 +95,28 @@ void ofApp::draw(){
             ofMultMatrix(translation);
 
             // window outline
-            ofSetLineWidth(1);
-            ofDrawRectangle(0, 0, 512, 200);
+            ofSetLineWidth(2);
+            ofDrawRectangle(0, 0, WW, HW);
 
             // window title
             ofSetColor(outlineColor);
-            overPassMono10.drawString("Left Channel", 4, 18);
+            overPassMono12.drawString("Left Channel", 0, TH);
 
             // draw curve
             ofSetColor(contentColor);
             ofSetLineWidth(3);
             ofBeginShape();
                 for (unsigned int i = 0; i < left.size(); i++){
-                    ofVertex(ofMap(i*2, 0, left.size() * 2, 0, 512), 100 -left[i]*180.0f);
+                    ofVertex(ofMap(i*2, 0, left.size() * 2, 0, WW), HW / 2 -left[i]*180.0f);
                 }
             ofEndShape(false);
 
         ofPopMatrix();
     ofPopStyle();
 
+    // second window (2, 1)
     // draw the average volume:
-    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(32, 264));
+    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(LW, UH + HW + INTW));
     ofPushStyle();
         ofPushMatrix();
 
@@ -113,29 +124,30 @@ void ofApp::draw(){
             ofMultMatrix(translation);
 
             // window outline
-            ofDrawRectangle(0, 0, 512, 200);
+            ofSetLineWidth(2);
+            ofDrawRectangle(0, 0, WW, HW);
 
             // title window
             ofSetColor(outlineColor);
-            overPassMono10.drawString("Volume : ", 4, 18);
+            overPassMono12.drawString("Volume : ", 0, TH);
 
             // draw volume
-            volume.draw(80, 18, translation);
-            overPassMono10.drawString("Scaled average vol (0-100): " + ofToString(scaledVol * 100.0, 0), 4, 35);
+            volume.draw(100, TH, translation);
+            overPassMono10.drawString("Scaled average vol (0-100): " + ofToString(scaledVol * HW / 4, 0), 4, 18);
 
             // draw circle for scaled volume
             ofSetColor(contentColor);
             ofFill();
-            ofDrawCircle(256, 100, scaledVol * 50.0f);
+            ofDrawCircle(WW / 2, HW / 2, scaledVol * HW / 4);
 
             //lets draw the volume history as a graph
             ofBeginShape();
             for (unsigned int i = 0; i < volHistory.size(); i++){
-                if( i == 0 ) ofVertex(i, 200);
+                if( i == 0 ) ofVertex(i, HW);
 
-                ofVertex(i, 200 - volHistory[i] * 35);
+                ofVertex(i, HW - volHistory[i] * 35);
 
-                if( i == volHistory.size() -1 ) ofVertex(i, 200);
+                if( i == volHistory.size() -1 ) ofVertex(i, HW);
             }
             ofEndShape(false);
             ofNoFill();
@@ -143,9 +155,10 @@ void ofApp::draw(){
         ofPopMatrix();
     ofPopStyle();
 
-    // draw the FFt:
+    // third window (2, 1)
+    // draw the FFT:
     float maxFreqInd = samplePerFreq * maxFreq.value;
-    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(544, 64));
+    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(LW + WW + INTW, UH));
     ofPushStyle();
         ofPushMatrix();
             // translation
@@ -153,64 +166,71 @@ void ofApp::draw(){
 
             // title of window
             ofSetColor(outlineColor);
-            overPassMono10.drawString("FFT", 4, 18);
+            overPassMono12.drawString("FFT", 0, TH);
 
             // window outline
-            ofSetLineWidth(1);
-            ofDrawRectangle(0, 0, 512, 200);
+            ofSetLineWidth(2);
+            ofDrawRectangle(0, 0, WW, HW);
 
             // draw curve
             ofSetColor(contentColor);
             ofSetLineWidth(3);
             ofBeginShape();
                 for (unsigned int i = 0; i < maxFreqInd; i++){
-                    ofVertex(ofMap(i*2, 0, maxFreqInd * 2, 0, 512), 200 - freq_amp[i]);
+                    ofVertex(ofMap(i*2, 0, maxFreqInd * 2, 0, WW), HW - freq_amp[i]);
                 }
             ofEndShape(false);
 
             // display freq info
             ofSetColor(outlineColor);
-            ofSetLineWidth(1);
+            ofSetLineWidth(2);
                 // origin
-            ofDrawLine(0, 200, 0, 210);
-            overPassMono10.drawString("0", 5, 220);
+            ofDrawLine(0, HW, 0, HW + 10);
+            overPassMono10.drawString("0", -10, HW + 25);
                 // middle point
-            ofDrawLine(256, 200, 256, 210);
-            overPassMono10.drawString(ofToString(maxFreq.value / 2), 240, 220);
+            ofDrawLine(WW / 2, HW, WW / 2, HW + 10);
+            overPassMono10.drawString(ofToString(maxFreq.value / 2), WW / 2 - 10, HW + 25);
                 // end
-            ofDrawLine(512, 200, 512, 210);
-            maxFreq.draw(430, 220, translation);
-            overPassMono10.drawString("(Hz)", 470, 220);
+            ofDrawLine(WW, HW, WW, HW + 10);
+            maxFreq.draw(WW - 30, HW + 25, translation);
+            overPassMono10.drawString("(Hz)", WW + 15, HW + 25);
 
         ofPopMatrix();
     ofPopStyle();
 
+    // fourth window (2, 2)
     // draw the bins:
-    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(544, 264));
+    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(LW + WW + INTW, UH + HW + INTW));
     ofPushStyle();
         ofPushMatrix();
             // translation
             ofMultMatrix(translation);
 
             // window outline
-            ofSetLineWidth(1);
-            ofDrawRectangle(0, 0, 512, 200);
+            ofSetLineWidth(2);
+            ofDrawRectangle(0, 0, WW, HW);
 
             // title of window
             ofSetColor(outlineColor);
-            overPassMono10.drawString("BINS", 4, 35);
+            overPassMono12.drawString("BINS", 0, TH);
 
             // number of bins
-            overPassMono10.drawString("Number :", 4, 55);
-            numBin.draw(80, 55, translation);
+            overPassMono10.drawString("Number :", 4, 18);
+            numBin.draw(110, 18, translation);
 
-            //
-            //binsAmp.assign(numBin.value, 0.0);
-            float sc_win = 512 / numBin.value;
-            float sc_freqInd = maxFreqInd / numBin.value;
-            float sc_freqReal = maxFreq.value / numBin.value;
+            // smoothing value
+            overPassMono10.drawString("Smoothing :", 4, 40);
+            smoothBin.draw(110, 35, translation);
+            overPassMono10.drawString(ofToString(smoothBin.value), 225, 40);
+
+            // compute energy of each bin
+            int numBinInt = (int) numBin.value;
+            float sc_win = WW / numBinInt;
+            float sc_freqInd = maxFreqInd / numBinInt;
+            float sc_freqReal = maxFreq.value / numBinInt;
+            bool up = true;
             ofSetColor(contentColor);
-            ofSetLineWidth(1);
+            ofSetLineWidth(2);
             ofBeginShape();
             for(int i = 0; i < binsAmp.size(); i++)
             {
@@ -233,25 +253,40 @@ void ofApp::draw(){
                 binValue /= numCounted;
                 binValue = sqrt(binValue);
 
-                binsAmp[i] *= 0.99;
-                binsAmp[i] += 0.01 * binValue;
+                binsAmp[i] *= smoothBin.value;
+                binsAmp[i] += (1 - smoothBin.value) * binValue;
 
                 // draw bin
-                ofVertex(startWin, 200);
-                ofVertex(startWin, 200 - binsAmp[i]);
-                ofVertex(endWin, 200 - binsAmp[i]);
-                ofVertex(endWin, 200);
+                ofVertex(startWin, HW);
+                ofVertex(startWin, HW - binsAmp[i]);
+                ofVertex(endWin, HW - binsAmp[i]);
+                ofVertex(endWin, HW);
 
                 // draw number
                 ofSetColor(outlineColor);
-                ofDrawLine(startWin, 200, startWin, 210);
-                overPassMono10.drawString(ofToString((int) (i * sc_freqReal)), startWin - 10, (i % 2) ? 225 : 240);
+
+                int numPlotFreq = ofMap(binsAmp.size(), numBin.minValue, numBin.maxValue, 2, 5);
+                if(i % numPlotFreq)
+                {
+                    ofSetLineWidth(2);
+                    overPassMono10.drawString(ofToString((int) (i * sc_freqReal)), startWin - 10, up ? HW + 25 : HW + 40);
+
+                    // update up
+                    up = !up;
+                } else {
+                    ofSetLineWidth(1);
+                }
+
+                // draw line
+                ofDrawLine(startWin, HW, startWin, HW + 10);
+
+                // always draw last frequency
                 if(i == binsAmp.size() - 1)
                 {
-                    ofDrawLine(endWin, 200, endWin, 210);
-                    overPassMono10.drawString(ofToString((int) ((i+1) * sc_freqReal)), endWin - 10, ((i+1) % 2) ? 225 : 240);
+                    overPassMono10.drawString(ofToString((int) ((i + 1) * sc_freqReal)), endWin - 10, up ? HW + 25 : HW + 40);
                 }
             }
+
             ofSetLineWidth(3);
             ofSetColor(contentColor);
             ofEndShape(false);
@@ -299,6 +334,16 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
     }
 
     bufferCounter++;
+}
+
+void ofApp::exit()
+{
+    ofxXmlSettings settings;
+    settings.setValue("settings:volume", volume.value);
+    settings.setValue("settings:maxFreq", maxFreq.value);
+    settings.setValue("settings:numBins", numBin.value);
+    settings.setValue("settings:smoothing", smoothBin.value);
+    settings.saveFile("SoundAnalyzerSettings.xml");
 }
 
 //--------------------------------------------------------------

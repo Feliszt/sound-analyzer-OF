@@ -10,10 +10,12 @@
 class CustomSlider
 {
 public:
-    void setup(float _minValue, float _maxValue, float _value, ofTrueTypeFont _font);
+    void setup(float _minValue, float _maxValue, float _value, ofTrueTypeFont _font, ofColor _hoverColor, ofColor _dragColor);
     void draw(float posStringX, float posStringY, ofMatrix4x4 transMatrix);
 
     float   value;
+    float   minValue;
+    float   maxValue;
 
     CustomSlider();
 
@@ -21,18 +23,19 @@ private:
     // variables
     ofVec2f posCenterString;
     ofVec2f mousePosStart;
-    float   minValue;
-    float   maxValue;
     string  valueString;
     int     numDigit;
     int     numDigitPrev;
-    bool    valueUpdatable;
     float   valueStart;
     float   diff;
     bool hovered;
     bool dragged;
     bool draggedPrev;
     ofTrueTypeFont textFont;
+    bool mousePressedPrev;
+    ofColor hoverColor;
+    ofColor dragColor;
+    ofColor dragColorBoundary;
 
     ofVec2f getCenterOfString(string text);
 };
