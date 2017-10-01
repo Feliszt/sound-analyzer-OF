@@ -3,15 +3,16 @@
 #include "ofMain.h"
 #include "ofxGui.h"
 #include "ofxXmlSettings.h"
+#include "ofxOsc.h"
 #include "fft.h"
 #include "customslider.h"
 #include "customsliderb.h"
 
-#define LW 64
-#define UH 128
-#define WW 512
+#define LW 50
+#define UH 80
+#define WW 350
 #define HW 200
-#define INTW 64
+#define INTW 80
 #define TH -10
 #define WAPP 2 * LW + 2 * WW + INTW
 #define HAPP UH + 2 * HW + LW + INTW
@@ -62,11 +63,13 @@ class ofApp : public ofBaseApp{
 
          // UI variables
             // panel and sliders
-        CustomSlider maxFreq;
-        CustomSlider volume;
-        CustomSlider numBin;
-        float        numBinPrev;
-        CustomSliderB smoothBin;
+        CustomSlider    maxFreq;
+        CustomSlider    volume;
+        CustomSlider    numBin;
+        int             numBinInt;
+        float           numBinPrev;
+        CustomSliderB   smoothBin;
+        CustomSlider    oscAdress;
             // colors
         ofColor backgroundColor;
         ofColor outlineColor;
@@ -81,4 +84,7 @@ class ofApp : public ofBaseApp{
         int bufferSize;
         int samplingFreq;
         float samplePerFreq;
+
+        // OSC variables
+        ofxOscSender oscSender;
 };

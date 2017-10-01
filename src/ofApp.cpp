@@ -9,6 +9,7 @@ void ofApp::setup(){
     float maxFreqSetting = settings.getValue("settings:maxFreq", 1300);
     float numBinsSetting = settings.getValue("settings:numBins", 14);
     float smoothingSetting = settings.getValue("settings:smoothing", 0.5);
+    float oscAdressSetting = settings.getValue("settings:oscAdress", 8000);
 
     // Sound stream setup
     samplingFreq    = 48000; // 48      kHz
@@ -44,10 +45,14 @@ void ofApp::setup(){
     overPassMono12.load("overpass-mono/overpass-mono-regular.otf", 12);
     overPassMono14.load("overpass-mono/overpass-mono-regular.otf", 14);
         // gui
-    maxFreq.setup(400, samplingFreq / 4, maxFreqSetting, overPassMono10, outlineColor, contentColor);
+    maxFreq.setup(400, samplingFreq / 2, maxFreqSetting, overPassMono10, outlineColor, contentColor);
     volume.setup(0, 100, volumeSetting, overPassMono12, outlineColor, contentColor);
     numBin.setup(1, 50, numBinsSetting, overPassMono10, outlineColor, contentColor);
     smoothBin.setup(smoothingSetting, outlineColor, contentColor);
+    oscAdress.setup(8000, 9000, oscAdressSetting, overPassMono12, outlineColor, contentColor);
+
+    // OSC setup
+    oscSender.setup("localhost", (int) oscAdress.value);
 
     ofSetVerticalSync(true);
     ofSetCircleResolution(80);
@@ -64,7 +69,7 @@ void ofApp::update(){
     volHistory.push_back( scaledVol );
 
     //if we are bigger the the size we want to record - lets drop the oldest value
-    if( volHistory.size() >= 400 ){
+    if( volHistory.size() >= WW ){
         volHistory.erase(volHistory.begin(), volHistory.begin()+1);
     }
 
@@ -74,16 +79,39 @@ void ofApp::update(){
         binsAmp.assign(numBin.value, 0.0);
     }
 
+    // send OSC
+    ofxOscMessage m;
+        // send number of bins
+    m.setAddress("/numBins");
+    numBinInt = (int) numBin.value;
+    m.addInt32Arg(numBinInt);
+    oscSender.sendMessage(m);
+    m.clear();
+        // send each bin amplitude
+    m.setAddress("/binsFreq");
+    for(int i = 0; i < binsAmp.size(); i++)
+    {
+        m.addFloatArg(binsAmp[i]);
+    }
+    oscSender.sendMessage(m);
+    m.clear();
+
     // update stuff
     numBinPrev = numBin.value;
 }
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-    ofSetColor(outlineColor);
-    overPassMono14.drawString("SOUND ANALYZER", LW, UH / 2);
-
+    // init trans matrix
     ofMatrix4x4 translation;
+
+    // title of app
+    ofSetColor(outlineColor);
+    overPassMono14.drawString("SOUND ANALYZER", LW, UH * 3 / 8);
+
+    // osc control
+    overPassMono12.drawString("OSC adress : ", LW, UH * 5 / 8);
+    oscAdress.draw(LW + 150, UH * 5 / 8, translation);
 
     // first window (1, 1)
     // draw the left channel:
@@ -107,7 +135,7 @@ void ofApp::draw(){
             ofSetLineWidth(3);
             ofBeginShape();
                 for (unsigned int i = 0; i < left.size(); i++){
-                    ofVertex(ofMap(i*2, 0, left.size() * 2, 0, WW), HW / 2 -left[i]*180.0f);
+                    ofVertex(ofMap(i*2, 0, left.size() * 2, 0, WW), HW / 2 - left[i] * 180.0f);
                 }
             ofEndShape(false);
 
@@ -224,7 +252,6 @@ void ofApp::draw(){
             overPassMono10.drawString(ofToString(smoothBin.value), 225, 40);
 
             // compute energy of each bin
-            int numBinInt = (int) numBin.value;
             float sc_win = WW / numBinInt;
             float sc_freqInd = maxFreqInd / numBinInt;
             float sc_freqReal = maxFreq.value / numBinInt;
@@ -343,6 +370,7 @@ void ofApp::exit()
     settings.setValue("settings:maxFreq", maxFreq.value);
     settings.setValue("settings:numBins", numBin.value);
     settings.setValue("settings:smoothing", smoothBin.value);
+    settings.setValue("settings:oscAdress", oscAdress.value);
     settings.saveFile("SoundAnalyzerSettings.xml");
 }
 
