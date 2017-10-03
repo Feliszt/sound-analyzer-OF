@@ -5,26 +5,76 @@ CustomSliderB::CustomSliderB()
 
 }
 
+/// setup methods
+void CustomSliderB::setup()
+{
+    setup(0.0f);
+}
+
+void CustomSliderB::setup(float _value)
+{
+    setup(_value, 100, 3, 7);
+}
+
+void CustomSliderB::setup(float _value, int _wSlider, int _hSlider, int _rSlider)
+{
+    setup(_value, _wSlider, _hSlider, _rSlider, ofColor::gray, ofColor::black);
+}
+
 void CustomSliderB::setup(float _value, ofColor _rectColor, ofColor _ellColor)
+{
+    setup(_value, 100, 3, 7, _rectColor, _ellColor);
+}
+
+void CustomSliderB::setup(float _value, int _wSlider, int _hSlider, int _rSlider, ofColor _rectColor, ofColor _ellColor)
 {
     value = _value;
     rectColor = _rectColor;
     ellColor = _ellColor;
-    ellColorHovered = _ellColor;
-    ellColorHovered.setBrightness(255);
 
-    w_slider = 100;
-    h_slider = 3;
-    r_slider = 7;
+    wSlider = _wSlider;
+    hSlider = _hSlider;
+    rSlider = _rSlider;
 }
 
 void CustomSliderB::draw(float posX, float posY, ofMatrix4x4 transMatrix)
 {
-    // check if dragged
-    if(hovered && ofGetMousePressed() && !mousePressedPrev)
+    // compute position of slider
+    ofPoint posRectAbs = ofPoint(posX, posY) * transMatrix;
+    ofPoint posSlider = ofPoint(posX + value * wSlider, posY + hSlider / 2);
+    ofPoint posSliderAbs = posSlider * transMatrix;
+
+    // check if hovered
+    ellHovered = (ofGetMouseX() < posSliderAbs.x + rSlider) &&
+              (ofGetMouseX() > posSliderAbs.x - rSlider) &&
+              (ofGetMouseY() < posSliderAbs.y + rSlider) &&
+              (ofGetMouseY() > posSliderAbs.y - rSlider);
+
+    rectHovered = (ofGetMouseX() < posRectAbs.x + wSlider)     &&
+              (ofGetMouseX() > posRectAbs.x)                &&
+              (ofGetMouseY() < posRectAbs.y + hSlider + 5)     &&
+              (ofGetMouseY() > posRectAbs.y - 5);
+
+    // check if ellipse is clicked on
+    if(ellHovered && ofGetMousePressed() && !mousePressedPrev)
     {
         dragged = true;
+        rectHovered = false;
     }
+
+    // check if slider rectangle is clicked on
+    if(rectHovered && ofGetMousePressed() && !mousePressedPrev)
+    {
+        // get where the slider is clicked on
+        diff = ofGetMouseX() - posSliderAbs.x;
+
+        // update value
+        float valueUpdate = value + diff / wSlider;
+        value = ofClamp(valueUpdate, 0, 1);
+        dragged = true;
+    }
+
+    // this registers when we unclick
     dragged &= ofGetMousePressed();
 
     // store mouse posString and value when dragging starts
@@ -38,19 +88,9 @@ void CustomSliderB::draw(float posX, float posY, ofMatrix4x4 transMatrix)
     if(dragged)
     {
         diff = ofGetMouseX() - mousePosStart.x;
-        float valueUpdate = valueStart + diff / w_slider;
+        float valueUpdate = valueStart + diff / wSlider;
         value = ofClamp(valueUpdate, 0, 1);
     }
-
-    // compute position of slider
-    ofPoint posSlider = ofPoint(posX + value * w_slider, posY + h_slider / 2);
-    ofPoint posSliderAbs = posSlider * transMatrix;
-
-    // check if hovered
-    hovered = (ofGetMouseX() < posSliderAbs.x + r_slider) &&
-              (ofGetMouseX() > posSliderAbs.x - r_slider) &&
-              (ofGetMouseY() < posSliderAbs.y + r_slider) &&
-              (ofGetMouseY() > posSliderAbs.y - r_slider);
 
     // set style
     ofPushStyle();
@@ -58,12 +98,14 @@ void CustomSliderB::draw(float posX, float posY, ofMatrix4x4 transMatrix)
         ofFill();
 
         // draw slider
+        ofSetColor(ellColor);
+        ofDrawRectRounded(posX, posY, posSlider.x - posX, hSlider, 10);
         ofSetColor(rectColor);
-        ofDrawRectRounded(posX, posY, w_slider, h_slider, 10);
+        ofDrawRectRounded(posSlider.x, posY, wSlider - (posSlider.x - posX), hSlider, 10);
 
         // draw ellipse
-        ofSetColor((hovered || dragged)? ellColorHovered : ellColor);
-        ofDrawCircle(posSlider, r_slider);
+        ofSetColor(ellColor);
+        ofDrawCircle(posSlider, rSlider);
 
     // reset style
     ofPopStyle();

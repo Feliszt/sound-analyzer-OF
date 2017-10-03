@@ -18,6 +18,7 @@ void ofApp::setup(){
     soundStream.printDeviceList();
     soundStream.setup(this, 0, 2, samplingFreq, bufferSize, 3);
 
+
     // Signals setup
     left.assign(bufferSize, 0.0);
     right.assign(bufferSize, 0.0);
@@ -65,8 +66,8 @@ void ofApp::update(){
     //lets scale the vol up to a 0-1 range
     scaledVol = ofMap(smoothedVol, 0.0, 0.17, 0.0, 1.0, true);
 
-    //lets record the volume into an array
-    volHistory.push_back( scaledVol );
+    //record the volume into an array
+    volHistory.push_back(scaledVol);
 
     //if we are bigger the the size we want to record - lets drop the oldest value
     if( volHistory.size() >= WW ){
@@ -321,6 +322,9 @@ void ofApp::draw(){
         ofPopMatrix();
     ofPopStyle();
 
+    //
+    overPassMono14.drawString(ofToString(maxInput), 300, UH / 2);
+
     drawCounter++;
 }
 
@@ -335,8 +339,9 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 
     //lets go through each sample and calculate the root mean square which is a rough way to calculate volume
     for (int i = 0; i < bufferSize; i++){
-        left[i]		= input[i*2] * volume.value;
+        left[i]		= input[i*2] * (int) volume.value;
         //right[i]	= input[i*2+1];
+        maxInput = max(maxInput, input[i*2]);
 
         curVol += left[i] * left[i];
         //curVol += right[i] * right[i];

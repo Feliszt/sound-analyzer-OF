@@ -87,4 +87,7 @@ class ofApp : public ofBaseApp{
 
         // OSC variables
         ofxOscSender oscSender;
+
+        // test
+        float maxInput;
 };
