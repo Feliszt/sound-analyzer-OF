@@ -67,7 +67,7 @@ class ofApp : public ofBaseApp{
         CustomSlider    volume;
         CustomSlider    numBin;
         int             numBinInt;
-        float           numBinPrev;
+        int             numBinPrev;
         CustomSliderB   smoothBin;
         CustomSlider    oscAdress;
             // colors
@@ -87,7 +87,4 @@ class ofApp : public ofBaseApp{
 
         // OSC variables
         ofxOscSender oscSender;
-
-        // test
-        float maxInput;
 };

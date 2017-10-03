@@ -34,7 +34,6 @@ void ofApp::setup(){
     drawCounter		= 0;
     smoothedVol     = 0.0;
     curVol          = 0.0;
-    scaledVol		= 0.0;
 
     // UI setup
         // colors
@@ -63,11 +62,8 @@ void ofApp::setup(){
 
 //--------------------------------------------------------------
 void ofApp::update(){
-    //lets scale the vol up to a 0-1 range
-    scaledVol = ofMap(smoothedVol, 0.0, 0.17, 0.0, 1.0, true);
-
     //record the volume into an array
-    volHistory.push_back(scaledVol);
+    volHistory.push_back(smoothedVol);
 
     //if we are bigger the the size we want to record - lets drop the oldest value
     if( volHistory.size() >= WW ){
@@ -136,7 +132,7 @@ void ofApp::draw(){
             ofSetLineWidth(3);
             ofBeginShape();
                 for (unsigned int i = 0; i < left.size(); i++){
-                    ofVertex(ofMap(i*2, 0, left.size() * 2, 0, WW), HW / 2 - left[i] * 180.0f);
+                    ofVertex(ofMap(i*2, 0, left.size() * 2, 0, WW), HW / 2 - ofClamp(left[i] * 180.0f, - HW /2, HW / 2));
                 }
             ofEndShape(false);
 
@@ -162,20 +158,18 @@ void ofApp::draw(){
 
             // draw volume
             volume.draw(100, TH, translation);
-            overPassMono10.drawString("Scaled average vol (0-100): " + ofToString(scaledVol * HW / 4, 0), 4, 18);
+            overPassMono10.drawString("Scaled average vol (0-100): " + ofToString(smoothedVol * 100, 0), 4, 18);
 
             // draw circle for scaled volume
             ofSetColor(contentColor);
             ofFill();
-            ofDrawCircle(WW / 2, HW / 2, scaledVol * HW / 4);
+            ofDrawCircle(WW / 2, HW / 2, ofClamp(smoothedVol * 100, 0, HW /2));
 
             //lets draw the volume history as a graph
             ofBeginShape();
             for (unsigned int i = 0; i < volHistory.size(); i++){
                 if( i == 0 ) ofVertex(i, HW);
-
-                ofVertex(i, HW - volHistory[i] * 35);
-
+                ofVertex(i, HW - ofClamp(volHistory[i] * 100, 0, HW / 2));
                 if( i == volHistory.size() -1 ) ofVertex(i, HW);
             }
             ofEndShape(false);
@@ -186,7 +180,7 @@ void ofApp::draw(){
 
     // third window (2, 1)
     // draw the FFT:
-    float maxFreqInd = samplePerFreq * maxFreq.value;
+    float maxFreqFloat = samplePerFreq * maxFreq.value;
     translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(LW + WW + INTW, UH));
     ofPushStyle();
         ofPushMatrix();
@@ -205,8 +199,8 @@ void ofApp::draw(){
             ofSetColor(contentColor);
             ofSetLineWidth(3);
             ofBeginShape();
-                for (unsigned int i = 0; i < maxFreqInd; i++){
-                    ofVertex(ofMap(i*2, 0, maxFreqInd * 2, 0, WW), HW - freq_amp[i]);
+                for (unsigned int i = 0; i < maxFreqFloat; i++){
+                    ofVertex(ofMap(i*2, 0, maxFreqFloat * 2, 0, WW), HW - ofClamp(freq_amp[i], 0, HW));
                 }
             ofEndShape(false);
 
@@ -250,13 +244,17 @@ void ofApp::draw(){
             // smoothing value
             overPassMono10.drawString("Smoothing :", 4, 40);
             smoothBin.draw(110, 35, translation);
-            overPassMono10.drawString(ofToString(smoothBin.value), 225, 40);
+            overPassMono10.drawString(ofToString(smoothBin.value, 1), 225, 40);
+
+
+            float sc_win = WW / (float) numBinInt;
+            float sc_freqInd = maxFreqFloat / numBinInt;
+            float sc_freqReal = maxFreq.value / numBinInt;
+
+            // draw freq per bin
+            overPassMono10.drawString(ofToString(sc_freqReal, 0) + " Hz/bin", WW - 100, 18);
 
             // compute energy of each bin
-            float sc_win = WW / numBinInt;
-            float sc_freqInd = maxFreqInd / numBinInt;
-            float sc_freqReal = maxFreq.value / numBinInt;
-            bool up = true;
             ofSetColor(contentColor);
             ofSetLineWidth(2);
             ofBeginShape();
@@ -284,35 +282,12 @@ void ofApp::draw(){
                 binsAmp[i] *= smoothBin.value;
                 binsAmp[i] += (1 - smoothBin.value) * binValue;
 
+                float displayedValue = ofClamp(binsAmp[i], 0, HW - 50);
                 // draw bin
                 ofVertex(startWin, HW);
-                ofVertex(startWin, HW - binsAmp[i]);
-                ofVertex(endWin, HW - binsAmp[i]);
+                ofVertex(startWin, HW - displayedValue);
+                ofVertex(endWin, HW - displayedValue);
                 ofVertex(endWin, HW);
-
-                // draw number
-                ofSetColor(outlineColor);
-
-                int numPlotFreq = ofMap(binsAmp.size(), numBin.minValue, numBin.maxValue, 2, 5);
-                if(i % numPlotFreq)
-                {
-                    ofSetLineWidth(2);
-                    overPassMono10.drawString(ofToString((int) (i * sc_freqReal)), startWin - 10, up ? HW + 25 : HW + 40);
-
-                    // update up
-                    up = !up;
-                } else {
-                    ofSetLineWidth(1);
-                }
-
-                // draw line
-                ofDrawLine(startWin, HW, startWin, HW + 10);
-
-                // always draw last frequency
-                if(i == binsAmp.size() - 1)
-                {
-                    overPassMono10.drawString(ofToString((int) ((i + 1) * sc_freqReal)), endWin - 10, up ? HW + 25 : HW + 40);
-                }
             }
 
             ofSetLineWidth(3);
@@ -321,9 +296,6 @@ void ofApp::draw(){
 
         ofPopMatrix();
     ofPopStyle();
-
-    //
-    overPassMono14.drawString(ofToString(maxInput), 300, UH / 2);
 
     drawCounter++;
 }
@@ -339,12 +311,8 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 
     //lets go through each sample and calculate the root mean square which is a rough way to calculate volume
     for (int i = 0; i < bufferSize; i++){
-        left[i]		= input[i*2] * (int) volume.value;
-        //right[i]	= input[i*2+1];
-        maxInput = max(maxInput, input[i*2]);
-
+        left[i]	= input[i*2] * volume.value;
         curVol += left[i] * left[i];
-        //curVol += right[i] * right[i];
         numCounted+=1;
     }
 
@@ -353,6 +321,9 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 
     // compute root of rms
     curVol = sqrt( curVol );
+
+    // normalize to 1
+    curVol = ofMap(curVol, 0, 0.707 * 1, 0, 1);
 
     smoothedVol *= 0.93;
     smoothedVol += 0.07 * curVol;
