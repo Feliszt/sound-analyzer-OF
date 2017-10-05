@@ -27,7 +27,7 @@ void ofApp::setup(){
     magnitude.assign(bufferSize, 0.0);
     power.assign(bufferSize, 0.0);
     phase.assign(bufferSize, 0.0);
-    binsAmp.assign(numBin.value, 0.0);
+    binsAmp.assign(numBin.getValue(), 0.0);
 
     // Floats setup
     bufferCounter	= 0;
@@ -45,14 +45,14 @@ void ofApp::setup(){
     overPassMono12.load("overpass-mono/overpass-mono-regular.otf", 12);
     overPassMono14.load("overpass-mono/overpass-mono-regular.otf", 14);
         // gui
-    maxFreq.setup(400, samplingFreq / 2, maxFreqSetting, overPassMono10, outlineColor, contentColor);
-    volume.setup(0, 100, volumeSetting, overPassMono12, outlineColor, contentColor);
-    numBin.setup(1, 50, numBinsSetting, overPassMono10, outlineColor, contentColor);
+    maxFreq.setup(400, samplingFreq / 2, maxFreqSetting, overPassMono10, outlineColor, outlineColor, contentColor);
+    volume.setup(0, 100, volumeSetting, overPassMono12, outlineColor, outlineColor, contentColor);
+    numBin.setup(1, 50, numBinsSetting, overPassMono10, outlineColor, outlineColor, contentColor);
     smoothBin.setup(smoothingSetting, outlineColor, contentColor);
-    oscAdress.setup(8000, 9000, oscAdressSetting, overPassMono12, outlineColor, contentColor);
+    oscAdress.setup(8000, 9000, oscAdressSetting, overPassMono12, outlineColor, outlineColor, contentColor);
 
     // OSC setup
-    oscSender.setup("localhost", (int) oscAdress.value);
+    oscSender.setup("localhost", (int) oscAdress.getValue());
 
     ofSetVerticalSync(true);
     ofSetCircleResolution(80);
@@ -71,16 +71,23 @@ void ofApp::update(){
     }
 
     // check if number of bin changed
-    if(numBinPrev != numBin.value)
+    if(numBinPrev != numBin.getValue())
     {
-        binsAmp.assign(numBin.value, 0.0);
+        binsAmp.assign(numBin.getValue(), 0.0);
     }
 
     // send OSC
     ofxOscMessage m;
+    // send volume
+    /*
+    m.setAddress("/volume");
+    m.addFloatArg(smoothedVol);
+    oscSender.sendMessage(m);
+    m.clear();
+    */
         // send number of bins
     m.setAddress("/numBins");
-    numBinInt = (int) numBin.value;
+    numBinInt = (int) numBin.getValue();
     m.addInt32Arg(numBinInt);
     oscSender.sendMessage(m);
     m.clear();
@@ -93,8 +100,9 @@ void ofApp::update(){
     oscSender.sendMessage(m);
     m.clear();
 
+
     // update stuff
-    numBinPrev = numBin.value;
+    numBinPrev = numBin.getValue();
 }
 
 //--------------------------------------------------------------
@@ -180,7 +188,7 @@ void ofApp::draw(){
 
     // third window (2, 1)
     // draw the FFT:
-    float maxFreqFloat = samplePerFreq * maxFreq.value;
+    float maxFreqFloat = samplePerFreq * maxFreq.getValue();
     translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(LW + WW + INTW, UH));
     ofPushStyle();
         ofPushMatrix();
@@ -212,7 +220,7 @@ void ofApp::draw(){
             overPassMono10.drawString("0", -10, HW + 25);
                 // middle point
             ofDrawLine(WW / 2, HW, WW / 2, HW + 10);
-            overPassMono10.drawString(ofToString(maxFreq.value / 2), WW / 2 - 10, HW + 25);
+            overPassMono10.drawString(ofToString(maxFreq.getValue() / 2), WW / 2 - 10, HW + 25);
                 // end
             ofDrawLine(WW, HW, WW, HW + 10);
             maxFreq.draw(WW - 30, HW + 25, translation);
@@ -244,12 +252,12 @@ void ofApp::draw(){
             // smoothing value
             overPassMono10.drawString("Smoothing :", 4, 40);
             smoothBin.draw(110, 35, translation);
-            overPassMono10.drawString(ofToString(smoothBin.value, 1), 225, 40);
+            overPassMono10.drawString(ofToString(smoothBin.getValue(), 1), 225, 40);
 
 
             float sc_win = WW / (float) numBinInt;
             float sc_freqInd = maxFreqFloat / numBinInt;
-            float sc_freqReal = maxFreq.value / numBinInt;
+            float sc_freqReal = maxFreq.getValue() / numBinInt;
 
             // draw freq per bin
             overPassMono10.drawString(ofToString(sc_freqReal, 0) + " Hz/bin", WW - 100, 18);
@@ -279,8 +287,8 @@ void ofApp::draw(){
                 binValue /= numCounted;
                 binValue = sqrt(binValue);
 
-                binsAmp[i] *= smoothBin.value;
-                binsAmp[i] += (1 - smoothBin.value) * binValue;
+                binsAmp[i] *= smoothBin.getValue();
+                binsAmp[i] += (1 - smoothBin.getValue()) * binValue;
 
                 float displayedValue = ofClamp(binsAmp[i], 0, HW - 50);
                 // draw bin
@@ -311,7 +319,7 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 
     //lets go through each sample and calculate the root mean square which is a rough way to calculate volume
     for (int i = 0; i < bufferSize; i++){
-        left[i]	= input[i*2] * volume.value;
+        left[i]	= input[i*2] * volume.getValue();
         curVol += left[i] * left[i];
         numCounted+=1;
     }
@@ -342,11 +350,11 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 void ofApp::exit()
 {
     ofxXmlSettings settings;
-    settings.setValue("settings:volume", volume.value);
-    settings.setValue("settings:maxFreq", maxFreq.value);
-    settings.setValue("settings:numBins", numBin.value);
-    settings.setValue("settings:smoothing", smoothBin.value);
-    settings.setValue("settings:oscAdress", oscAdress.value);
+    settings.setValue("settings:volume", volume.getValue());
+    settings.setValue("settings:maxFreq", maxFreq.getValue());
+    settings.setValue("settings:numBins", numBin.getValue());
+    settings.setValue("settings:smoothing", smoothBin.getValue());
+    settings.setValue("settings:oscAdress", oscAdress.getValue());
     settings.saveFile("SoundAnalyzerSettings.xml");
 }
 

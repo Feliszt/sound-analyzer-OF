@@ -1,12 +1,10 @@
 #pragma once
 
 #include "ofMain.h"
-#include "ofxGui.h"
 #include "ofxXmlSettings.h"
 #include "ofxOsc.h"
 #include "fft.h"
-#include "customslider.h"
-#include "customsliderb.h"
+#include "ofxSimpleFloatingGui.h"
 
 #define LW 50
 #define UH 80
@@ -63,13 +61,13 @@ class ofApp : public ofBaseApp{
 
          // UI variables
             // panel and sliders
-        CustomSlider    maxFreq;
-        CustomSlider    volume;
-        CustomSlider    numBin;
+        SliderA    maxFreq;
+        SliderA    volume;
+        SliderA    numBin;
         int             numBinInt;
         int             numBinPrev;
-        CustomSliderB   smoothBin;
-        CustomSlider    oscAdress;
+        SliderB   smoothBin;
+        SliderA    oscAdress;
             // colors
         ofColor backgroundColor;
         ofColor outlineColor;
