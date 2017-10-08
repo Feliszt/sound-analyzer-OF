@@ -7,7 +7,7 @@
 #include "ofxSimpleFloatingGui.h"
 
 #define LW 50
-#define UH 80
+#define UH 120
 #define WW 350
 #define HW 200
 #define INTW 80
@@ -61,13 +61,13 @@ class ofApp : public ofBaseApp{
 
          // UI variables
             // panel and sliders
-        SliderA    maxFreq;
-        SliderA    volume;
-        SliderA    numBin;
-        int             numBinInt;
-        int             numBinPrev;
-        SliderB   smoothBin;
-        SliderA    oscAdress;
+        SliderA     maxFreq;
+        SliderA     volume;
+        SliderA     numBin;
+        int         numBinInt;
+        int         numBinPrev;
+        SliderB     smoothBin;
+        TextField   oscAdress;
             // colors
         ofColor backgroundColor;
         ofColor outlineColor;
@@ -85,4 +85,5 @@ class ofApp : public ofBaseApp{
 
         // OSC variables
         ofxOscSender oscSender;
+        int             oscAdressAsInt, oscAdressAsIntPrev;
 };

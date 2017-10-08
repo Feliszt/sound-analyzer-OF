@@ -37,7 +37,7 @@ void ofApp::setup(){
 
     // UI setup
         // colors
-    backgroundColor = ofColor(216, 216, 217);
+    backgroundColor = ofColor(224, 224, 224);
     outlineColor    = ofColor(42);
     contentColor    = ofColor(212, 81, 19);
         // fonts
@@ -45,14 +45,15 @@ void ofApp::setup(){
     overPassMono12.load("overpass-mono/overpass-mono-regular.otf", 12);
     overPassMono14.load("overpass-mono/overpass-mono-regular.otf", 14);
         // gui
-    maxFreq.setup(400, samplingFreq / 2, maxFreqSetting, overPassMono10, outlineColor, outlineColor, contentColor);
-    volume.setup(0, 100, volumeSetting, overPassMono12, outlineColor, outlineColor, contentColor);
-    numBin.setup(1, 50, numBinsSetting, overPassMono10, outlineColor, outlineColor, contentColor);
+    maxFreq.setup(400, samplingFreq / 2, maxFreqSetting, overPassMono10, outlineColor, contentColor);
+    volume.setup(0, 100, volumeSetting, overPassMono12, outlineColor, contentColor);
+    numBin.setup(1, 50, numBinsSetting, overPassMono10, outlineColor, contentColor);
     smoothBin.setup(smoothingSetting, outlineColor, contentColor);
-    oscAdress.setup(8000, 9000, oscAdressSetting, overPassMono12, outlineColor, outlineColor, contentColor);
+    oscAdress.setup(ofToString(oscAdressSetting), 6, overPassMono12, outlineColor);
 
     // OSC setup
-    oscSender.setup("localhost", (int) oscAdress.getValue());
+    oscSender.setup("localhost", oscAdressSetting);
+    oscAdressAsIntPrev = oscAdressSetting;
 
     ofSetVerticalSync(true);
     ofSetCircleResolution(80);
@@ -76,15 +77,20 @@ void ofApp::update(){
         binsAmp.assign(numBin.getValue(), 0.0);
     }
 
+    // check for changes of OSC adress
+    oscAdressAsInt = std::stoi(oscAdress.getValue());
+    if(oscAdressAsInt != oscAdressAsIntPrev) {
+        ofLog() << "Changing osc port to " << oscAdressAsInt;
+        oscSender.setup("localhost", oscAdressAsInt);
+    }
+
     // send OSC
     ofxOscMessage m;
-    // send volume
-    /*
+        // send volume
     m.setAddress("/volume");
     m.addFloatArg(smoothedVol);
     oscSender.sendMessage(m);
     m.clear();
-    */
         // send number of bins
     m.setAddress("/numBins");
     numBinInt = (int) numBin.getValue();
@@ -103,6 +109,7 @@ void ofApp::update(){
 
     // update stuff
     numBinPrev = numBin.getValue();
+    oscAdressAsIntPrev = oscAdressAsInt;
 }
 
 //--------------------------------------------------------------
@@ -112,11 +119,11 @@ void ofApp::draw(){
 
     // title of app
     ofSetColor(outlineColor);
-    overPassMono14.drawString("SOUND ANALYZER", LW, UH * 3 / 8);
+    overPassMono14.drawString("SOUND ANALYZER", LW, 30);
 
     // osc control
-    overPassMono12.drawString("OSC adress : ", LW, UH * 5 / 8);
-    oscAdress.draw(LW + 150, UH * 5 / 8, translation);
+    overPassMono12.drawString("OSC adress : ", LW, 70);
+    oscAdress.draw(LW + 125, 52, translation);
 
     // first window (1, 1)
     // draw the left channel:
@@ -165,7 +172,7 @@ void ofApp::draw(){
             overPassMono12.drawString("Volume : ", 0, TH);
 
             // draw volume
-            volume.draw(100, TH, translation);
+            volume.draw(100, TH - 12, translation);
             overPassMono10.drawString("Scaled average vol (0-100): " + ofToString(smoothedVol * 100, 0), 4, 18);
 
             // draw circle for scaled volume
@@ -223,7 +230,7 @@ void ofApp::draw(){
             overPassMono10.drawString(ofToString(maxFreq.getValue() / 2), WW / 2 - 10, HW + 25);
                 // end
             ofDrawLine(WW, HW, WW, HW + 10);
-            maxFreq.draw(WW - 30, HW + 25, translation);
+            maxFreq.draw(WW - 30, HW + 15, translation);
             overPassMono10.drawString("(Hz)", WW + 15, HW + 25);
 
         ofPopMatrix();
@@ -247,11 +254,11 @@ void ofApp::draw(){
 
             // number of bins
             overPassMono10.drawString("Number :", 4, 18);
-            numBin.draw(110, 18, translation);
+            numBin.draw(110, 8, translation);
 
             // smoothing value
             overPassMono10.drawString("Smoothing :", 4, 40);
-            smoothBin.draw(110, 35, translation);
+            smoothBin.draw(110, 36, translation);
             overPassMono10.drawString(ofToString(smoothBin.getValue(), 1), 225, 40);
 
 
@@ -354,7 +361,7 @@ void ofApp::exit()
     settings.setValue("settings:maxFreq", maxFreq.getValue());
     settings.setValue("settings:numBins", numBin.getValue());
     settings.setValue("settings:smoothing", smoothBin.getValue());
-    settings.setValue("settings:oscAdress", oscAdress.getValue());
+    settings.setValue("settings:oscAdress", oscAdressAsInt);
     settings.saveFile("SoundAnalyzerSettings.xml");
 }
 
