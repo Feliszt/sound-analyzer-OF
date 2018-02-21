@@ -6,8 +6,10 @@ void ofApp::setup(){
     ofxXmlSettings settings;
     settings.loadFile("SoundAnalyzerSettings.xml");
     float volumeSetting = settings.getValue("settings:volume", 40);
+    float volThreshSetting = settings.getValue("settings:volThresh", 0.5);
+    float volScaleSetting = settings.getValue("settings:volScale", 1);
     float maxFreqSetting = settings.getValue("settings:maxFreq", 1300);
-    float numBinsSetting = settings.getValue("settings:numBins", 14);
+    int numBinsSetting = settings.getValue("settings:numBins", 14);
     float smoothingSetting = settings.getValue("settings:smoothing", 0.5);
     float oscAdressSetting = settings.getValue("settings:oscAdress", 8000);
 
@@ -24,16 +26,21 @@ void ofApp::setup(){
     right.assign(bufferSize, 0.0);
     freq_amp.assign((int) bufferSize / 2, 0.0);
     volHistory.assign(WW, 0.0);
+    volHistory.assign(WW, 0.0);
     magnitude.assign(bufferSize, 0.0);
     power.assign(bufferSize, 0.0);
     phase.assign(bufferSize, 0.0);
-    binsAmp.assign(numBin.getValue(), 0.0);
+    binsAmp.assign(numBinsSetting, 0.0);
 
     // Floats setup
     bufferCounter	= 0;
     drawCounter		= 0;
     smoothedVol     = 0.0;
     curVol          = 0.0;
+    curVolPrev      = 0.0;
+    divVol          = 0.0;
+    maxDivVol       = - 99;
+    numHist         = 50;
 
     // UI setup
         // colors
@@ -47,6 +54,8 @@ void ofApp::setup(){
         // gui
     maxFreq.setup(400, samplingFreq / 2, maxFreqSetting, overPassMono10, outlineColor, contentColor);
     volume.setup(0, 100, volumeSetting, overPassMono12, outlineColor, contentColor);
+    volThresh.setup(volThreshSetting, outlineColor, contentColor);
+    volScale.setup(volScaleSetting, outlineColor, contentColor);
     numBin.setup(1, 50, numBinsSetting, overPassMono10, outlineColor, contentColor);
     smoothBin.setup(smoothingSetting, outlineColor, contentColor);
     oscAdress.setup(ofToString(oscAdressSetting), 6, overPassMono12, outlineColor);
@@ -66,16 +75,26 @@ void ofApp::update(){
     //record the volume into an array
     volHistory.push_back(smoothedVol);
 
+
     //if we are bigger the the size we want to record - lets drop the oldest value
-    if( volHistory.size() >= WW ){
+    if( volHistory.size() >= numHist ){
         volHistory.erase(volHistory.begin(), volHistory.begin()+1);
     }
 
+    numBinInt = (int) numBin.getValue();
     // check if number of bin changed
-    if(numBinPrev != numBin.getValue())
+    if(numBinPrev != numBinInt)
     {
-        binsAmp.assign(numBin.getValue(), 0.0);
+        binsAmp.assign(numBinInt, 0.0);
     }
+
+    // onset detection
+    float actVolThresh = ofMap(volThresh.getValue(), 0, 1, 0, volScale.getValue());
+    above = divVol > actVolThresh;
+    onSet = above && !abovePrev;
+    if(onSet) ofLog() << "UNTSS\t" << divVol;
+    abovePrev = above;
+
 
     // check for changes of OSC adress
     oscAdressAsInt = std::stoi(oscAdress.getValue());
@@ -86,6 +105,13 @@ void ofApp::update(){
 
     // send OSC
     ofxOscMessage m;
+        // send onSet
+    if(onSet) {
+        m.setAddress("/onSet");
+        m.addFloatArg(divVol);
+        oscSender.sendMessage(m);
+        m.clear();
+    }
         // send volume
     m.setAddress("/volume");
     m.addFloatArg(smoothedVol);
@@ -93,7 +119,6 @@ void ofApp::update(){
     m.clear();
         // send number of bins
     m.setAddress("/numBins");
-    numBinInt = (int) numBin.getValue();
     m.addInt32Arg(numBinInt);
     oscSender.sendMessage(m);
     m.clear();
@@ -108,7 +133,7 @@ void ofApp::update(){
 
 
     // update stuff
-    numBinPrev = numBin.getValue();
+    numBinPrev = numBinInt;
     oscAdressAsIntPrev = oscAdressAsInt;
 }
 
@@ -127,7 +152,7 @@ void ofApp::draw(){
 
     // first window (1, 1)
     // draw the left channel:
-    translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(LW, UH));
+        translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(LW, UH));
     ofPushStyle();
         ofPushMatrix();
 
@@ -170,10 +195,21 @@ void ofApp::draw(){
             // title window
             ofSetColor(outlineColor);
             overPassMono12.drawString("Volume : ", 0, TH);
+            volume.draw(100, TH - 12, translation);
 
             // draw volume
-            volume.draw(100, TH - 12, translation);
-            overPassMono10.drawString("Scaled average vol (0-100): " + ofToString(smoothedVol * 100, 0), 4, 18);
+            //overPassMono10.drawString("Scaled average vol (0-100): " + ofToString(smoothedVol * 100, 0), 4, 18);
+
+            // draw scale
+            overPassMono10.drawString("Scale :", 4, 18);
+            volScale.draw(110, 12, translation);
+            overPassMono10.drawString(ofToString(volScale.getValue(), 2), 225, 18);
+
+            // draw volume threshold
+            overPassMono10.drawString("Threshold :", 4, 40);
+            volThresh.draw(110, 34, translation);
+            float actVolThresh = ofMap(volThresh.getValue(), 0, 1, 0, volScale.getValue());
+            overPassMono10.drawString(ofToString(actVolThresh, 2), 225, 40);
 
             // draw circle for scaled volume
             ofSetColor(contentColor);
@@ -182,13 +218,20 @@ void ofApp::draw(){
 
             //lets draw the volume history as a graph
             ofBeginShape();
-            for (unsigned int i = 0; i < volHistory.size(); i++){
+            for (unsigned int i = 0; i < derVolHistory.size(); i++){
+                float abs = ofMap(i, 0, derVolHistory.size(), 0, WW);
                 if( i == 0 ) ofVertex(i, HW);
-                ofVertex(i, HW - ofClamp(volHistory[i] * 100, 0, HW / 2));
-                if( i == volHistory.size() -1 ) ofVertex(i, HW);
+                float value = ofClamp(ofMap(derVolHistory[i], 0, volScale.getValue(), 0, HW), 0, HW);
+                ofVertex(abs, HW - value);
+                if( i == derVolHistory.size() -1 ) ofVertex(abs, HW);
             }
             ofEndShape(false);
             ofNoFill();
+
+            // draw threshold
+            float volThreshHeight = ofMap(actVolThresh, 0, volScale.getValue(), 0, HW);
+            ofDrawLine(0, HW - volThreshHeight, WW, HW - volThreshHeight);
+
 
         ofPopMatrix();
     ofPopStyle();
@@ -254,11 +297,11 @@ void ofApp::draw(){
 
             // number of bins
             overPassMono10.drawString("Number :", 4, 18);
-            numBin.draw(110, 8, translation);
+            numBin.draw(110, 9, translation);
 
             // smoothing value
             overPassMono10.drawString("Smoothing :", 4, 40);
-            smoothBin.draw(110, 36, translation);
+            smoothBin.draw(110, 34, translation);
             overPassMono10.drawString(ofToString(smoothBin.getValue(), 1), 225, 40);
 
 
@@ -339,6 +382,15 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 
     // normalize to 1
     curVol = ofMap(curVol, 0, 0.707 * 1, 0, 1);
+
+    // compute diff
+    divVol = ofClamp(curVol - curVolPrev, 0, 999);
+    if (divVol > maxDivVol) maxDivVol = divVol;
+    derVolHistory.push_back(divVol);
+    if(derVolHistory.size() >= numHist){
+        derVolHistory.erase(derVolHistory.begin(), derVolHistory.begin()+1);
+    }
+    curVolPrev = curVol;
 
     smoothedVol *= 0.93;
     smoothedVol += 0.07 * curVol;
