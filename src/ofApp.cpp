@@ -18,7 +18,7 @@ void ofApp::setup(){
     bufferSize      = 2048;  // 2048    samples
     samplePerFreq   = (float) bufferSize / (float) samplingFreq;
     soundStream.printDeviceList();
-    soundStream.setup(this, 0, 2, samplingFreq, bufferSize, 3);
+    //soundStream.setup(this, 0, 2, samplingFreq, bufferSize, 3);
 
 
     // Signals setup
@@ -153,7 +153,7 @@ void ofApp::draw(){
     // first window (1, 1)
     // draw the left channel:
         translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(LW, UH));
-    ofPushStyle();
+		ofPushStyle();
         ofPushMatrix();
 
             // translation
