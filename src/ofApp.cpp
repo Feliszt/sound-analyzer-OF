@@ -14,12 +14,22 @@ void ofApp::setup(){
     float oscAdressSetting = settings.getValue("settings:oscAdress", 8000);
 
     // Sound stream setup
-    samplingFreq    = 48000; // 48      kHz
-    bufferSize      = 2048;  // 2048    samples
+    samplingFreq    = 48000; // 48   kHz
+    bufferSize      = 1024;  // 2048    samples
     samplePerFreq   = (float) bufferSize / (float) samplingFreq;
-    soundStream.printDeviceList();
-    //soundStream.setup(this, 0, 2, samplingFreq, bufferSize, 3);
 
+	s = ofRtAudioSoundStream();
+	vector<ofSoundDevice> devices = s.getDeviceList(ofSoundDevice::Api::MS_DS);
+
+	ofSoundStreamSettings soundSettings;
+	soundSettings.setInListener(this);
+	soundSettings.sampleRate = samplingFreq;
+	soundSettings.numOutputChannels = 0;
+	soundSettings.numInputChannels = 2;
+	soundSettings.bufferSize = bufferSize;
+	soundSettings.setApi(ofSoundDevice::Api::MS_DS);
+	soundSettings.setInDevice(devices[3]);
+    soundStream.setup(soundSettings);	
 
     // Signals setup
     left.assign(bufferSize, 0.0);
@@ -359,8 +369,7 @@ void ofApp::draw(){
 }
 
 //--------------------------------------------------------------
-void ofApp::audioIn(float * input, int bufferSize, int nChannels){
-
+void ofApp::audioIn(ofSoundBuffer & input){
     float avg_power = 0.0f;
     curVol = 0.0;
 

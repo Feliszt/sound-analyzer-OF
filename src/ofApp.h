@@ -5,6 +5,7 @@
 #include "ofxOsc.h"
 #include "fft.h"
 #include "ofxSimpleFloatingGui.h"
+#include "ofRtAudioSoundStream.h"
 
 #define LW 50
 #define UH 120
@@ -38,7 +39,7 @@ class ofApp : public ofBaseApp{
         void dragEvent(ofDragInfo dragInfo);
         void gotMessage(ofMessage msg);
 
-        void audioIn(float * input, int bufferSize, int nChannels);
+        void audioIn(ofSoundBuffer & input);
 
         vector <float> left;
         vector <float> right;
@@ -86,7 +87,8 @@ class ofApp : public ofBaseApp{
 
         // Sound stream variable
         ofSoundStream soundStream;
-        int bufferSize;
+		ofRtAudioSoundStream s;
+		int bufferSize;
         int samplingFreq;
         float samplePerFreq;
 
