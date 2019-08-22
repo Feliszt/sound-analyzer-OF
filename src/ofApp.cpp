@@ -12,23 +12,31 @@ void ofApp::setup(){
     int numBinsSetting = settings.getValue("settings:numBins", 14);
     float smoothingSetting = settings.getValue("settings:smoothing", 0.5);
     float oscAdressSetting = settings.getValue("settings:oscAdress", 8000);
+	currStreamDevice = settings.getValue("settings:currStreamDevice", 0);
+	currBinType = settings.getValue("settings:currBinType", 0);
 
     // Sound stream setup
     samplingFreq    = 48000; // 48   kHz
     bufferSize      = 1024;  // 2048    samples
     samplePerFreq   = (float) bufferSize / (float) samplingFreq;
 
+	// get stream and available devices
 	s = ofRtAudioSoundStream();
-	vector<ofSoundDevice> devices = s.getDeviceList(ofSoundDevice::Api::MS_DS);
+	devices = s.getDeviceList(ofSoundDevice::Api::MS_DS);
 
-	ofSoundStreamSettings soundSettings;
+	// get devices name
+	vector<string> deviceNames;
+	for (int i = 0; i < devices.size(); i++) {
+		deviceNames.push_back(devices[i].name);
+	}
+
+	// settings for sound stream
 	soundSettings.setInListener(this);
 	soundSettings.sampleRate = samplingFreq;
 	soundSettings.numOutputChannels = 0;
 	soundSettings.numInputChannels = 2;
-	soundSettings.bufferSize = bufferSize;
-	soundSettings.setApi(ofSoundDevice::Api::MS_DS);
-	soundSettings.setInDevice(devices[3]);
+	soundSettings.bufferSize = bufferSize;	
+	soundSettings.setInDevice(devices[currStreamDevice]);
     soundStream.setup(soundSettings);	
 
     // Signals setup
@@ -41,6 +49,8 @@ void ofApp::setup(){
     power.assign(bufferSize, 0.0);
     phase.assign(bufferSize, 0.0);
     binsAmp.assign(numBinsSetting, 0.0);
+	binsAmpNormalized.assign(numBinsSetting, 0.0);
+	maxFreqBins.assign(50, 0.0);
 
     // Floats setup
     bufferCounter	= 0;
@@ -68,7 +78,12 @@ void ofApp::setup(){
     volScale.setup(volScaleSetting, outlineColor, contentColor);
     numBin.setup(1, 50, numBinsSetting, overPassMono10, outlineColor, contentColor);
     smoothBin.setup(smoothingSetting, outlineColor, contentColor);
-    oscAdress.setup(ofToString(oscAdressSetting), 6, overPassMono12, outlineColor);
+    oscAdress.setup(ofToString(oscAdressSetting), 6, overPassMono10, outlineColor, ofColor::whiteSmoke);
+	soundStreamDevices.setup(deviceNames, currStreamDevice, overPassMono10, outlineColor, ofColor::whiteSmoke);
+	vector<string> binTypeNames;
+	binTypeNames.push_back("Unprocessed");
+	binTypeNames.push_back("Normalized");
+	binType.setup(binTypeNames, currBinType, overPassMono10, outlineColor, ofColor::whiteSmoke);
 
     // OSC setup
     oscSender.setup("localhost", oscAdressSetting);
@@ -122,6 +137,11 @@ void ofApp::update(){
         oscSender.sendMessage(m);
         m.clear();
     }
+		// send max freq
+	m.setAddress("/maxFreq");
+	m.addFloatArg(maxFreq.getValue());
+	oscSender.sendMessage(m);
+	m.clear();
         // send volume
     m.setAddress("/volume");
     m.addFloatArg(smoothedVol);
@@ -136,10 +156,19 @@ void ofApp::update(){
     m.setAddress("/binsFreq");
     for(int i = 0; i < binsAmp.size(); i++)
     {
-        m.addFloatArg(binsAmp[i]);
+		float ampToSend = binType.getValueInt() == 0 ? binsAmp[i] : binsAmpNormalized[i];
+        m.addFloatArg(ampToSend);
     }
     oscSender.sendMessage(m);
     m.clear();
+
+	// update drop down and create event listener
+	if (soundStreamDevices.getValueInt() != currStreamDevice) {
+		soundStream.close();
+		soundSettings.setInDevice(devices[soundStreamDevices.getValueInt()]);
+		soundStream.setup(soundSettings);
+	}
+	currStreamDevice = soundStreamDevices.getValueInt();
 
 
     // update stuff
@@ -350,20 +379,39 @@ void ofApp::draw(){
                 binsAmp[i] *= smoothBin.getValue();
                 binsAmp[i] += (1 - smoothBin.getValue()) * binValue;
 
-                float displayedValue = ofClamp(binsAmp[i], 0, HW - 50);
+				// update max values
+				if (binsAmp[i] > maxFreqBins[i]) {
+					maxFreqBins[i] = binsAmp[i];
+				}
+
+				// decrease max
+				maxFreqBins[i] *= 0.999;
+
+				// update normalized value
+				binsAmpNormalized[i] = binsAmp[i] / maxFreqBins[i];
+
+                float displayedValue = binType.getValueInt() == 0 ? ofClamp(binsAmp[i], 0, HW - 90) : binsAmpNormalized[i] * (HW-90);
                 // draw bin
                 ofVertex(startWin, HW);
                 ofVertex(startWin, HW - displayedValue);
                 ofVertex(endWin, HW - displayedValue);
                 ofVertex(endWin, HW);
             }
-
             ofSetLineWidth(3);
             ofSetColor(contentColor);
             ofEndShape(false);
 
+			// bin mode
+			ofSetColor(outlineColor);
+			overPassMono10.drawString("Type :", 4, 70);
+			binType.draw(110, 50, translation);
+
         ofPopMatrix();
     ofPopStyle();
+
+	// drop down menu for sound stream device
+	translation = ofMatrix4x4::newTranslationMatrix(ofVec3f(0, 0));
+	soundStreamDevices.draw(LW + WW + INTW, 45, translation);
 
     drawCounter++;
 }
@@ -423,6 +471,8 @@ void ofApp::exit()
     settings.setValue("settings:numBins", numBin.getValue());
     settings.setValue("settings:smoothing", smoothBin.getValue());
     settings.setValue("settings:oscAdress", oscAdressAsInt);
+	settings.setValue("settings:currStreamDevice", currStreamDevice);
+	settings.setValue("settings:currBinType", binType.getValueInt());
     settings.saveFile("SoundAnalyzerSettings.xml");
 }
 

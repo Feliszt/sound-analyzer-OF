@@ -9,8 +9,8 @@
 
 #define LW 50
 #define UH 120
-#define WW 400
-#define HW 250
+#define WW 450
+#define HW 300
 #define INTW 80
 #define TH -10
 #define WAPP 2 * LW + 2 * WW + INTW
@@ -49,7 +49,7 @@ class ofApp : public ofBaseApp{
         vector <float> magnitude;
         vector <float> phase;
         vector <float> power;
-        vector <float> binsAmp;
+		vector <float> binsAmp, binsAmpNormalized, maxFreqBins;
 
         // frequency analysis
         FFT fftoperator;
@@ -76,6 +76,10 @@ class ofApp : public ofBaseApp{
         int         numBinPrev;
         SliderB     smoothBin;
         TextField   oscAdress;
+		DropDown	soundStreamDevices;
+		int			currStreamDevice;
+		DropDown	binType;
+		int			currBinType;
             // colors
         ofColor backgroundColor;
         ofColor outlineColor;
@@ -88,6 +92,8 @@ class ofApp : public ofBaseApp{
         // Sound stream variable
         ofSoundStream soundStream;
 		ofRtAudioSoundStream s;
+		vector<ofSoundDevice> devices;
+		ofSoundStreamSettings soundSettings;
 		int bufferSize;
         int samplingFreq;
         float samplePerFreq;

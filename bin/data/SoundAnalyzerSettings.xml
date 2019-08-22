@@ -1,7 +1,9 @@
 <settings>
-    <volume>13.000000000</volume>
-    <maxFreq>2570.000000000</maxFreq>
-    <numBins>22.000000000</numBins>
-    <smoothing>0.649999976</smoothing>
-    <oscAdress>9001</oscAdress>
+    <volume>8.000000000</volume>
+    <maxFreq>1858.148193359</maxFreq>
+    <numBins>30.555555344</numBins>
+    <smoothing>0.759999990</smoothing>
+    <oscAdress>9000</oscAdress>
+    <currStreamDevice>3</currStreamDevice>
+    <currBinType>1</currBinType>
 </settings>
